@@ -1,0 +1,21 @@
+# worktree ディレクトリ
+.worktrees/
+
+# 依存関係
+node_modules/
+
+# ビルド成果物
+dist/
+out/
+
+# 環境変数
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/settings.json
+*.swp
