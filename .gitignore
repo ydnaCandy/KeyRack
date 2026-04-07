@@ -16,6 +16,9 @@ out/
 .DS_Store
 Thumbs.db
 
+# Linux コアダンプ
+core
+
 # エディタ
 .vscode/settings.json
 *.swp
