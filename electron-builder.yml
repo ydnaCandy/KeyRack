@@ -1,43 +1,49 @@
-appId: com.electron.app
-productName: keyrack-scaffold
+# electron-builder.yml
+appId: com.keyrack.app
+productName: KeyRack
+copyright: Copyright © 2026
+
 directories:
-  buildResources: build
+  buildResources: resources
+  output: dist
+
 files:
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.eslintignore,.eslintrc.cjs,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+
+# better-sqlite3 等のネイティブモジュールを asar から除外して実行可能にする
+asar: true
 asarUnpack:
   - resources/**
+  - node_modules/better-sqlite3/**
+  - node_modules/bindings/**
+  - node_modules/file-uri-to-path/**
+
 win:
-  executableName: keyrack-scaffold
-nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
-mac:
-  entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
+  executableName: KeyRack
+  target:
+    - target: portable
+      arch:
+        - x64
+  artifactName: '${productName}_Portable_${version}.${ext}'
+
+# インストーラー形式が必要な場合はこのセクションのコメントを外す
+# nsis:
+#   oneClick: false
+#   allowToChangeInstallationDirectory: true
+#   createDesktopShortcut: always
+#   artifactName: '${productName}_Setup_${version}.${ext}'
+
 linux:
   target:
     - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
-appImage:
-  artifactName: ${name}-${version}.${ext}
-npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  artifactName: '${productName}_${version}.${ext}'
+
+mac:
+  target:
+    - dmg
+  artifactName: '${productName}_${version}.${ext}'
