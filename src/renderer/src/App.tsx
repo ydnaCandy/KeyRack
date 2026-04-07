@@ -1,35 +1,36 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+// src/renderer/src/App.tsx
+import { useState, useEffect } from 'react'
+import { Auth } from './components/Auth'
+import { Dashboard } from './components/Dashboard'
+import { Loader2 } from 'lucide-react'
 
-function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+type AppState = 'loading' | 'setup' | 'locked' | 'unlocked'
 
-  return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
+export default function App() {
+  const [appState, setAppState] = useState<AppState>('loading')
+
+  useEffect(() => {
+    window.api.checkMaster().then((hasMaster) => {
+      setAppState(hasMaster ? 'locked' : 'setup')
+    })
+  }, [])
+
+  if (appState === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <Loader2 className="text-blue-400 w-10 h-10 animate-spin" />
       </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
-  )
+    )
+  }
+
+  if (appState === 'setup' || appState === 'locked') {
+    return (
+      <Auth
+        isFirstTime={appState === 'setup'}
+        onAuthenticated={() => setAppState('unlocked')}
+      />
+    )
+  }
+
+  return <Dashboard onLocked={() => setAppState('locked')} />
 }
-
-export default App
