@@ -37,11 +37,12 @@ export function DbConnectionModal({ item, onClose, onSaved }: DbConnectionModalP
     }
   }, [item])
 
-  const handleChange = (field: keyof DbConnectionInput) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
-  }
+  const handleChange =
+    (field: keyof DbConnectionInput) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({ ...prev, [field]: e.target.value }))
+    }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -61,141 +62,311 @@ export function DbConnectionModal({ item, onClose, onSaved }: DbConnectionModalP
     }
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '9px 12px',
+    background: '#f4f2f9',
+    border: '2px solid #c9bce6',
+    borderRadius: '10px',
+    color: '#2a2440',
+    fontSize: '15px',
+    fontFamily: "'DotGothic16', sans-serif",
+    outline: 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+    boxSizing: 'border-box',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '11px',
+    fontFamily: "'Silkscreen', monospace",
+    color: '#7a6a9e',
+    marginBottom: '5px',
+    letterSpacing: '1px',
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.style.borderColor = '#7c3aed'
+    e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.12)'
+  }
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.style.borderColor = '#c9bce6'
+    e.target.style.boxShadow = 'none'
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-700 sticky top-0 bg-gray-800">
-          <h2 className="text-lg font-semibold text-white">
-            {item ? 'DB接続情報を編集' : 'DB接続情報を追加'}
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(42,36,64,0.65)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 50,
+        padding: '16px',
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '14px',
+          width: '100%',
+          maxWidth: '520px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 0 60px rgba(124,58,237,0.25), 0 30px 60px rgba(42,36,64,0.2)',
+          border: '2px solid #c9bce6',
+        }}
+      >
+        {/* ヘッダー */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '18px 20px',
+            borderBottom: '2px solid #ede9f8',
+            position: 'sticky',
+            top: 0,
+            background: '#ffffff',
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "'Silkscreen', monospace",
+              fontSize: '12px',
+              letterSpacing: '2px',
+              color: '#2a2440',
+              margin: 0,
+            }}
+          >
+            {item ? 'EDIT DB CONNECTION' : 'ADD DB CONNECTION'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#7a6a9e',
+              padding: '4px',
+              display: 'flex',
+              borderRadius: '6px',
+              transition: 'color 0.1s, background 0.1s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#c0392b'
+              e.currentTarget.style.background = 'rgba(192,57,43,0.1)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#7a6a9e'
+              e.currentTarget.style.background = 'none'
+            }}
             aria-label="閉じる"
           >
-            <X className="w-5 h-5" />
+            <X style={{ width: '18px', height: '18px' }} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* フォーム */}
+        <form
+          onSubmit={handleSubmit}
+          style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}
+        >
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              名称 <span className="text-red-400">*</span>
+            <label style={labelStyle}>
+              名称 <span style={{ color: '#c0392b' }}>*</span>
             </label>
             <input
               type="text"
               value={form.name}
               onChange={handleChange('name')}
-              className={inputClass}
+              style={inputStyle}
               placeholder="例: 本番DB"
               required
+              autoFocus
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* ホスト / IP を2列グリッド */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                ホスト / DNS名
-              </label>
+              <label style={labelStyle}>ホスト / DNS名</label>
               <input
                 type="text"
                 value={form.dns_name}
                 onChange={handleChange('dns_name')}
-                className={inputClass}
+                style={inputStyle}
                 placeholder="db.example.com"
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">IPアドレス</label>
+              <label style={labelStyle}>IPアドレス</label>
               <input
                 type="text"
                 value={form.ip_address}
                 onChange={handleChange('ip_address')}
-                className={inputClass}
+                style={inputStyle}
                 placeholder="192.168.1.1"
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* ポート / DB名 を2列グリッド */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">ポート</label>
+              <label style={labelStyle}>ポート</label>
               <input
                 type="text"
                 value={form.port}
                 onChange={handleChange('port')}
-                className={inputClass}
+                style={inputStyle}
                 placeholder="5432"
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">DB名</label>
+              <label style={labelStyle}>DB名</label>
               <input
                 type="text"
                 value={form.db_name}
                 onChange={handleChange('db_name')}
-                className={inputClass}
+                style={inputStyle}
                 placeholder="mydb"
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">ユーザー名</label>
+            <label style={labelStyle}>ユーザー名</label>
             <input
               type="text"
               value={form.username}
               onChange={handleChange('username')}
-              className={inputClass}
+              style={inputStyle}
               placeholder="admin"
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              パスワード <span className="text-red-400">*</span>
+            <label style={labelStyle}>
+              パスワード <span style={{ color: '#c0392b' }}>*</span>
             </label>
-            <div className="relative">
+            <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={form.password}
                 onChange={handleChange('password')}
-                className={`${inputClass} pr-10`}
+                style={{
+                  ...inputStyle,
+                  paddingRight: '42px',
+                  fontFamily: showPassword ? "'IBM Plex Mono', monospace" : undefined,
+                }}
                 placeholder="パスワードを入力"
                 required
+                onFocus={handleFocus}
+                onBlur={handleBlur}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#7a6a9e',
+                  padding: '4px',
+                  display: 'flex',
+                }}
                 aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? (
+                  <EyeOff style={{ width: '16px', height: '16px' }} />
+                ) : (
+                  <Eye style={{ width: '16px', height: '16px' }} />
+                )}
               </button>
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-900/40 border border-red-700 rounded-lg p-3">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div
+              style={{
+                background: 'rgba(192,57,43,0.08)',
+                border: '1.5px solid rgba(192,57,43,0.3)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+              }}
+            >
+              <p style={{ color: '#c0392b', fontSize: '13px', margin: 0 }}>{error}</p>
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
+          {/* ボタン行 */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium rounded-lg transition-colors"
+              className="btn-3d"
+              style={{
+                '--btn-shadow': '#c9bce6',
+                flex: 1,
+                padding: '10px 16px',
+                background: '#ede9f8',
+                boxShadow: '0 4px 0 #c9bce6',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#7a6a9e',
+                fontFamily: "'Silkscreen', monospace",
+                fontSize: '10px',
+                letterSpacing: '1px',
+                cursor: 'pointer',
+              } as React.CSSProperties}
             >
               キャンセル
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="btn-3d"
+              style={{
+                '--btn-shadow': '#4c1d95',
+                flex: 1,
+                padding: '10px 16px',
+                background: loading
+                  ? '#c9bce6'
+                  : 'linear-gradient(to bottom, #7c3aed, #6d28d9)',
+                boxShadow: loading ? 'none' : '0 4px 0 #4c1d95',
+                border: 'none',
+                borderRadius: '10px',
+                color: '#ffffff',
+                fontFamily: "'Silkscreen', monospace",
+                fontSize: '10px',
+                letterSpacing: '1px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              } as React.CSSProperties}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? '保存中...' : '保存'}

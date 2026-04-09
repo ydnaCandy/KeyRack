@@ -1,1 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=DotGothic16&family=IBM+Plex+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
+
+* {
+  font-family: 'DotGothic16', 'Hiragino Kaku Gothic ProN', sans-serif;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #f4f2f9;
+  color: #2a2440;
+  margin: 0;
+  padding: 0;
+}
+
+/* 3Dボタン押下エフェクト */
+.btn-3d {
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.btn-3d:active:not(:disabled) {
+  transform: translateY(4px) !important;
+  box-shadow: 0 1px 0 var(--btn-shadow, #4c1d95) !important;
+}
+
+/* サイドバートoltip */
+.sidebar-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.sidebar-btn-wrap:hover .sidebar-tooltip {
+  opacity: 1;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #ede9f8;
+}
+::-webkit-scrollbar-thumb {
+  background: #b0a0d8;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+}

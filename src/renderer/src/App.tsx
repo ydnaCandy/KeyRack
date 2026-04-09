@@ -17,8 +17,11 @@ export default function App() {
 
   if (appState === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <Loader2 className="text-blue-400 w-10 h-10 animate-spin" />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: '#f4f2f9' }}
+      >
+        <Loader2 className="w-10 h-10 animate-spin" style={{ color: '#7c3aed' }} />
       </div>
     )
   }
