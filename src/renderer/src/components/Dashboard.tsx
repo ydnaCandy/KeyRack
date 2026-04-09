@@ -15,6 +15,7 @@ import {
   Upload,
   Download,
   KeyRound,
+  type LucideIcon,
 } from 'lucide-react'
 import type { ServiceLogin, DbConnection } from '@shared/interfaces'
 import { ServiceLoginModal } from './ServiceLoginModal'
@@ -26,6 +27,111 @@ interface DashboardProps {
   onLocked: () => void
 }
 
+// スーファミ風バッジカラー（赤→黄→青→緑でサイクル）
+const BADGE_COLORS = [
+  { bg: '#c0392b', shadow: '#7a1c1c' },
+  { bg: '#d4a017', shadow: '#8a690f' },
+  { bg: '#1a6fb5', shadow: '#0d3d6e' },
+  { bg: '#1a8a4a', shadow: '#0d5430' },
+]
+
+function getBadgeColor(index: number) {
+  return BADGE_COLORS[index % BADGE_COLORS.length]
+}
+
+// サイドバーボタン
+interface SidebarBtnProps {
+  icon: LucideIcon
+  label: string
+  active?: boolean
+  danger?: boolean
+  onClick: () => void
+}
+
+function SidebarBtn({ icon: Icon, label, active, danger, onClick }: SidebarBtnProps) {
+  return (
+    <div className="sidebar-btn-wrap" style={{ position: 'relative' }}>
+      <button
+        onClick={onClick}
+        title={label}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '10px',
+          borderRadius: '10px',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          ...(active
+            ? {
+                background: 'linear-gradient(to bottom, #7c3aed, #6d28d9)',
+                color: '#ffffff',
+                boxShadow: '0 3px 0 #4c1d95',
+              }
+            : danger
+              ? {
+                  background: 'transparent',
+                  color: '#c0392b',
+                }
+              : {
+                  background: 'transparent',
+                  color: '#7a6a9e',
+                }),
+        }}
+        onMouseEnter={(e) => {
+          if (!active) {
+            e.currentTarget.style.background = danger
+              ? 'rgba(192,57,43,0.1)'
+              : 'rgba(124,58,237,0.1)'
+            e.currentTarget.style.color = danger ? '#c0392b' : '#7c3aed'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!active) {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = danger ? '#c0392b' : '#7a6a9e'
+          }
+        }}
+      >
+        <Icon style={{ width: '20px', height: '20px' }} />
+      </button>
+      {/* ツールチップ */}
+      <div
+        className="sidebar-tooltip"
+        style={{
+          position: 'absolute',
+          left: 'calc(100% + 8px)',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: '#2a2440',
+          color: '#ffffff',
+          fontSize: '11px',
+          fontFamily: "'Silkscreen', monospace",
+          letterSpacing: '1px',
+          padding: '5px 10px',
+          borderRadius: '6px',
+          whiteSpace: 'nowrap',
+          zIndex: 100,
+        }}
+      >
+        {label}
+        <div
+          style={{
+            position: 'absolute',
+            right: '100%',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            border: '5px solid transparent',
+            borderRightColor: '#2a2440',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function Dashboard({ onLocked }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('service')
   const [serviceLogins, setServiceLogins] = useState<ServiceLogin[]>([])
@@ -35,11 +141,11 @@ export function Dashboard({ onLocked }: DashboardProps) {
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [editingServiceLogin, setEditingServiceLogin] = useState<ServiceLogin | null | undefined>(
     undefined,
-  ) // undefined = 閉じている, null = 新規
+  )
   const [editingDbConnection, setEditingDbConnection] = useState<DbConnection | null | undefined>(
     undefined,
   )
-  const [statusMessage, setStatusMessage] = useState('')
+  const [statusMessage, setStatusMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
   const loadData = useCallback(async () => {
     if (activeTab === 'service') {
@@ -57,9 +163,9 @@ export function Dashboard({ onLocked }: DashboardProps) {
     setVisiblePasswords(new Set())
   }, [activeTab, loadData])
 
-  const showStatus = (message: string) => {
-    setStatusMessage(message)
-    setTimeout(() => setStatusMessage(''), 3000)
+  const showStatus = (text: string, ok = true) => {
+    setStatusMessage({ text, ok })
+    setTimeout(() => setStatusMessage(null), 3000)
   }
 
   const handleLock = async () => {
@@ -82,7 +188,9 @@ export function Dashboard({ onLocked }: DashboardProps) {
   }
 
   const handleDeleteServiceLogin = async (id: number) => {
-    const confirmed = confirm('このサービスログイン情報を削除しますか？\nこの操作は元に戻せません。')
+    const confirmed = confirm(
+      'このサービスログイン情報を削除しますか？\nこの操作は元に戻せません。',
+    )
     if (!confirmed) return
     const result = await window.api.deleteServiceLogin(id)
     if (result.success) {
@@ -101,18 +209,15 @@ export function Dashboard({ onLocked }: DashboardProps) {
 
   const handleExport = async () => {
     const result = await window.api.exportData()
-    showStatus(result.message ?? (result.success ? 'エクスポート完了' : 'エクスポート失敗'))
+    showStatus(result.message ?? (result.success ? 'エクスポート完了' : 'エクスポート失敗'), result.success)
   }
 
   const handleImport = async () => {
     const result = await window.api.importData()
-    if (result.success) {
-      await loadData()
-    }
-    showStatus(result.message ?? (result.success ? 'インポート完了' : 'インポート失敗'))
+    if (result.success) await loadData()
+    showStatus(result.message ?? (result.success ? 'インポート完了' : 'インポート失敗'), result.success)
   }
 
-  // 検索フィルタ
   const filteredServiceLogins = serviceLogins.filter(
     (item) =>
       item.service_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -127,251 +232,600 @@ export function Dashboard({ onLocked }: DashboardProps) {
       (item.ip_address ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  const cardClass = 'bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-gray-600 transition-colors'
-  const btnIconClass = 'p-1.5 rounded-lg transition-colors'
+  const iconBtnStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '6px',
+    borderRadius: '6px',
+    color: '#7a6a9e',
+    display: 'flex',
+    alignItems: 'center',
+    transition: 'background 0.1s, color 0.1s',
+  }
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
-      {/* サイドバー */}
-      <aside className="w-56 bg-gray-800 border-r border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-700 flex items-center gap-2">
-          <KeyRound className="text-blue-400 w-6 h-6" />
-          <span className="font-bold text-lg">KeyRack</span>
+    <div style={{ display: 'flex', height: '100vh', background: '#f4f2f9', color: '#2a2440' }}>
+      {/* アイコンサイドバー（62px） */}
+      <aside
+        style={{
+          width: '62px',
+          minWidth: '62px',
+          background: '#ede9f8',
+          borderRight: '2px solid #c9bce6',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'visible',
+          position: 'relative',
+          zIndex: 10,
+        }}
+      >
+        {/* ロゴ */}
+        <div
+          style={{
+            height: '62px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderBottom: '2px solid #c9bce6',
+          }}
+        >
+          <KeyRound style={{ width: '26px', height: '26px', color: '#7c3aed' }} />
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
-          <button
+        {/* ナビゲーション */}
+        <nav style={{ flex: 1, padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <SidebarBtn
+            icon={Globe}
+            label="サービスログイン"
+            active={activeTab === 'service'}
             onClick={() => setActiveTab('service')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'service'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <Globe className="w-4 h-4" />
-            サービスログイン
-          </button>
-          <button
+          />
+          <SidebarBtn
+            icon={Database}
+            label="DB接続管理"
+            active={activeTab === 'db'}
             onClick={() => setActiveTab('db')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === 'db'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            DB接続管理
-          </button>
+          />
         </nav>
 
-        <div className="p-3 border-t border-gray-700 space-y-1">
-          <button
-            onClick={handleExport}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            エクスポート
-          </button>
-          <button
-            onClick={handleImport}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            インポート
-          </button>
-          <button
-            onClick={handleLock}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-400 hover:bg-red-900/30 hover:text-red-300 transition-colors"
-          >
-            <Lock className="w-4 h-4" />
-            ロック
-          </button>
+        {/* 下部ボタン */}
+        <div
+          style={{
+            padding: '8px',
+            borderTop: '2px solid #c9bce6',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+          }}
+        >
+          <SidebarBtn icon={Download} label="エクスポート" onClick={handleExport} />
+          <SidebarBtn icon={Upload} label="インポート" onClick={handleImport} />
+          <SidebarBtn icon={Lock} label="ロック" danger onClick={handleLock} />
         </div>
       </aside>
 
       {/* メインコンテンツ */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* ヘッダー */}
-        <header className="p-4 border-b border-gray-700 flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <header
+          style={{
+            padding: '12px 16px',
+            borderBottom: '2px solid #c9bce6',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: '#ffffff',
+          }}
+        >
+          {/* 検索バー */}
+          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+            <Search
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '16px',
+                height: '16px',
+                color: '#7a6a9e',
+              }}
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="名称、ユーザー名などで検索..."
-              className="w-full pl-9 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="名称・ユーザー名などで検索..."
+              style={{
+                width: '100%',
+                paddingLeft: '36px',
+                paddingRight: '12px',
+                paddingTop: '8px',
+                paddingBottom: '8px',
+                background: '#f4f2f9',
+                border: '2px solid #c9bce6',
+                borderRadius: '10px',
+                color: '#2a2440',
+                fontSize: '14px',
+                fontFamily: "'DotGothic16', sans-serif",
+                outline: 'none',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#7c3aed'
+                e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.12)'
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#c9bce6'
+                e.target.style.boxShadow = 'none'
+              }}
             />
           </div>
+
+          {/* 追加ボタン */}
           <button
+            className="btn-3d"
             onClick={() =>
               activeTab === 'service'
                 ? setEditingServiceLogin(null)
                 : setEditingDbConnection(null)
             }
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            style={{
+              '--btn-shadow': '#4c1d95',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              background: 'linear-gradient(to bottom, #7c3aed, #6d28d9)',
+              boxShadow: '0 4px 0 #4c1d95',
+              border: 'none',
+              borderRadius: '10px',
+              color: '#ffffff',
+              fontFamily: "'Silkscreen', monospace",
+              fontSize: '10px',
+              letterSpacing: '1px',
+              cursor: 'pointer',
+            } as React.CSSProperties}
           >
-            <Plus className="w-4 h-4" />
+            <Plus style={{ width: '16px', height: '16px' }} />
             追加
           </button>
         </header>
 
+        {/* タブ見出し */}
+        <div
+          style={{
+            padding: '10px 16px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Silkscreen', monospace",
+              fontSize: '11px',
+              letterSpacing: '2px',
+              color: '#7a6a9e',
+            }}
+          >
+            {activeTab === 'service'
+              ? `SERVICE LOGINS — ${filteredServiceLogins.length}件`
+              : `DB CONNECTIONS — ${filteredDbConnections.length}件`}
+          </span>
+        </div>
+
         {/* ステータスメッセージ */}
         {statusMessage && (
-          <div className="mx-4 mt-3 px-4 py-2 bg-green-900/40 border border-green-700 rounded-lg text-green-400 text-sm">
-            {statusMessage}
+          <div
+            style={{
+              margin: '8px 16px 0',
+              padding: '8px 14px',
+              background: statusMessage.ok ? 'rgba(26,138,74,0.1)' : 'rgba(192,57,43,0.1)',
+              border: `1.5px solid ${statusMessage.ok ? 'rgba(26,138,74,0.3)' : 'rgba(192,57,43,0.3)'}`,
+              borderRadius: '8px',
+              color: statusMessage.ok ? '#1a8a4a' : '#c0392b',
+              fontSize: '13px',
+            }}
+          >
+            {statusMessage.text}
           </div>
         )}
 
-        {/* 一覧 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* カード一覧 */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 16px' }}>
           {activeTab === 'service' && (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredServiceLogins.length === 0 ? (
-                <p className="text-gray-500 text-center py-16">
+                <p
+                  style={{
+                    color: '#b0a0d8',
+                    textAlign: 'center',
+                    padding: '60px 0',
+                    fontFamily: "'Silkscreen', monospace",
+                    fontSize: '11px',
+                    letterSpacing: '1px',
+                  }}
+                >
                   {searchQuery ? '検索結果がありません' : 'まだデータがありません。「追加」から登録してください。'}
                 </p>
               ) : (
-                filteredServiceLogins.map((item) => (
-                  <div key={item.id} className={cardClass}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Globe className="w-4 h-4 text-blue-400 shrink-0" />
-                          <span className="font-medium text-white truncate">{item.service_name}</span>
+                filteredServiceLogins.map((item, index) => {
+                  const badge = getBadgeColor(index)
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        background: '#ffffff',
+                        border: '2px solid #c9bce6',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        transition: 'transform 0.1s, border-color 0.1s, box-shadow 0.1s',
+                        cursor: 'default',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-1px)'
+                        e.currentTarget.style.borderColor = '#b0a0d8'
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(124,58,237,0.1)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.borderColor = '#c9bce6'
+                        e.currentTarget.style.boxShadow = 'none'
+                      }}
+                    >
+                      {/* カラーバッジ */}
+                      <div
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          minWidth: '40px',
+                          borderRadius: '10px',
+                          background: badge.bg,
+                          boxShadow: `0 4px 0 ${badge.shadow}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          fontFamily: "'Silkscreen', monospace",
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {item.service_name.charAt(0).toUpperCase()}
+                      </div>
+
+                      {/* コンテンツ */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontFamily: "'DotGothic16', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            color: '#2a2440',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.service_name}
                         </div>
                         {item.url && (
-                          <p className="text-xs text-gray-500 mt-0.5 ml-6 truncate">{item.url}</p>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: '#b0a0d8',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.url}
+                          </div>
                         )}
                         {item.username && (
-                          <p className="text-sm text-gray-400 mt-1 ml-6">{item.username}</p>
+                          <div
+                            style={{ fontSize: '13px', color: '#7a6a9e', marginTop: '2px' }}
+                          >
+                            {item.username}
+                          </div>
                         )}
-                        <div className="flex items-center gap-2 mt-2 ml-6">
-                          <span className="text-sm text-gray-300 font-mono">
+                        {/* パスワード行 */}
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '14px',
+                              fontFamily: "'IBM Plex Mono', monospace",
+                              color: '#7a6a9e',
+                              letterSpacing: '2px',
+                            }}
+                          >
                             {visiblePasswords.has(item.id) ? item.password : '••••••••'}
                           </span>
                           <button
                             onClick={() => togglePasswordVisibility(item.id)}
-                            className={`${btnIconClass} text-gray-400 hover:text-white hover:bg-gray-700`}
+                            style={iconBtnStyle}
                             aria-label={visiblePasswords.has(item.id) ? 'パスワードを隠す' : 'パスワードを表示'}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#ede9f8'
+                              e.currentTarget.style.color = '#7c3aed'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'none'
+                              e.currentTarget.style.color = '#7a6a9e'
+                            }}
                           >
                             {visiblePasswords.has(item.id) ? (
-                              <EyeOff className="w-3.5 h-3.5" />
+                              <EyeOff style={{ width: '14px', height: '14px' }} />
                             ) : (
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye style={{ width: '14px', height: '14px' }} />
                             )}
                           </button>
                           <button
                             onClick={() => handleCopy(item.id, item.password)}
-                            className={`${btnIconClass} text-gray-400 hover:text-white hover:bg-gray-700`}
+                            style={{
+                              ...iconBtnStyle,
+                              color: copiedId === item.id ? '#1a8a4a' : '#7a6a9e',
+                            }}
                             aria-label="パスワードをコピー"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#ede9f8'
+                              if (copiedId !== item.id) e.currentTarget.style.color = '#7c3aed'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'none'
+                              if (copiedId !== item.id) e.currentTarget.style.color = '#7a6a9e'
+                            }}
                           >
                             {copiedId === item.id ? (
-                              <ClipboardCheck className="w-3.5 h-3.5 text-green-400" />
+                              <ClipboardCheck style={{ width: '14px', height: '14px' }} />
                             ) : (
-                              <Clipboard className="w-3.5 h-3.5" />
+                              <Clipboard style={{ width: '14px', height: '14px' }} />
                             )}
                           </button>
                         </div>
                         {(item.note1 || item.note2) && (
-                          <div className="mt-1 ml-6 space-y-0.5">
-                            {item.note1 && <p className="text-xs text-gray-500">備考1: {item.note1}</p>}
-                            {item.note2 && <p className="text-xs text-gray-500">備考2: {item.note2}</p>}
+                          <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                            {item.note1 && (
+                              <span style={{ fontSize: '11px', color: '#b0a0d8' }}>備考1: {item.note1}</span>
+                            )}
+                            {item.note2 && (
+                              <span style={{ fontSize: '11px', color: '#b0a0d8' }}>備考2: {item.note2}</span>
+                            )}
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+
+                      {/* アクションボタン */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <button
                           onClick={() => setEditingServiceLogin(item)}
-                          className={`${btnIconClass} text-gray-400 hover:text-white hover:bg-gray-700`}
+                          style={iconBtnStyle}
                           aria-label="編集"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#ede9f8'
+                            e.currentTarget.style.color = '#7c3aed'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none'
+                            e.currentTarget.style.color = '#7a6a9e'
+                          }}
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil style={{ width: '16px', height: '16px' }} />
                         </button>
                         <button
                           onClick={() => handleDeleteServiceLogin(item.id)}
-                          className={`${btnIconClass} text-gray-400 hover:text-red-400 hover:bg-red-900/30`}
+                          style={{ ...iconBtnStyle, color: '#c0392b' }}
                           aria-label="削除"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(192,57,43,0.1)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none'
+                          }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 style={{ width: '16px', height: '16px' }} />
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           )}
 
           {activeTab === 'db' && (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredDbConnections.length === 0 ? (
-                <p className="text-gray-500 text-center py-16">
+                <p
+                  style={{
+                    color: '#b0a0d8',
+                    textAlign: 'center',
+                    padding: '60px 0',
+                    fontFamily: "'Silkscreen', monospace",
+                    fontSize: '11px',
+                    letterSpacing: '1px',
+                  }}
+                >
                   {searchQuery ? '検索結果がありません' : 'まだデータがありません。「追加」から登録してください。'}
                 </p>
               ) : (
-                filteredDbConnections.map((item) => (
-                  <div key={item.id} className={cardClass}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Database className="w-4 h-4 text-green-400 shrink-0" />
-                          <span className="font-medium text-white truncate">{item.name}</span>
+                filteredDbConnections.map((item, index) => {
+                  const badge = getBadgeColor(index)
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        background: '#ffffff',
+                        border: '2px solid #c9bce6',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        transition: 'transform 0.1s, border-color 0.1s, box-shadow 0.1s',
+                        cursor: 'default',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-1px)'
+                        e.currentTarget.style.borderColor = '#b0a0d8'
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(124,58,237,0.1)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.borderColor = '#c9bce6'
+                        e.currentTarget.style.boxShadow = 'none'
+                      }}
+                    >
+                      {/* カラーバッジ */}
+                      <div
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          minWidth: '40px',
+                          borderRadius: '10px',
+                          background: badge.bg,
+                          boxShadow: `0 4px 0 ${badge.shadow}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          fontFamily: "'Silkscreen', monospace",
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {item.name.charAt(0).toUpperCase()}
+                      </div>
+
+                      {/* コンテンツ */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontFamily: "'DotGothic16', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            color: '#2a2440',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.name}
                         </div>
-                        <div className="mt-1 ml-6 grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm text-gray-400">
-                          {item.dns_name && <p>ホスト: {item.dns_name}</p>}
-                          {item.ip_address && <p>IP: {item.ip_address}</p>}
-                          {item.port && <p>ポート: {item.port}</p>}
-                          {item.db_name && <p>DB名: {item.db_name}</p>}
-                          {item.username && <p>ユーザー: {item.username}</p>}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '2px 16px',
+                            marginTop: '4px',
+                            fontSize: '12px',
+                            color: '#7a6a9e',
+                          }}
+                        >
+                          {item.dns_name && <span>ホスト: {item.dns_name}</span>}
+                          {item.ip_address && <span>IP: {item.ip_address}</span>}
+                          {item.port && <span>ポート: {item.port}</span>}
+                          {item.db_name && <span>DB名: {item.db_name}</span>}
+                          {item.username && <span>ユーザー: {item.username}</span>}
                         </div>
-                        <div className="flex items-center gap-2 mt-2 ml-6">
-                          <span className="text-sm text-gray-300 font-mono">
+                        {/* パスワード行 */}
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '14px',
+                              fontFamily: "'IBM Plex Mono', monospace",
+                              color: '#7a6a9e',
+                              letterSpacing: '2px',
+                            }}
+                          >
                             {visiblePasswords.has(item.id) ? item.password : '••••••••'}
                           </span>
                           <button
                             onClick={() => togglePasswordVisibility(item.id)}
-                            className={`${btnIconClass} text-gray-400 hover:text-white hover:bg-gray-700`}
+                            style={iconBtnStyle}
                             aria-label={visiblePasswords.has(item.id) ? 'パスワードを隠す' : 'パスワードを表示'}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#ede9f8'
+                              e.currentTarget.style.color = '#7c3aed'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'none'
+                              e.currentTarget.style.color = '#7a6a9e'
+                            }}
                           >
                             {visiblePasswords.has(item.id) ? (
-                              <EyeOff className="w-3.5 h-3.5" />
+                              <EyeOff style={{ width: '14px', height: '14px' }} />
                             ) : (
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye style={{ width: '14px', height: '14px' }} />
                             )}
                           </button>
                           <button
                             onClick={() => handleCopy(item.id, item.password)}
-                            className={`${btnIconClass} text-gray-400 hover:text-white hover:bg-gray-700`}
+                            style={{
+                              ...iconBtnStyle,
+                              color: copiedId === item.id ? '#1a8a4a' : '#7a6a9e',
+                            }}
                             aria-label="パスワードをコピー"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#ede9f8'
+                              if (copiedId !== item.id) e.currentTarget.style.color = '#7c3aed'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'none'
+                              if (copiedId !== item.id) e.currentTarget.style.color = '#7a6a9e'
+                            }}
                           >
                             {copiedId === item.id ? (
-                              <ClipboardCheck className="w-3.5 h-3.5 text-green-400" />
+                              <ClipboardCheck style={{ width: '14px', height: '14px' }} />
                             ) : (
-                              <Clipboard className="w-3.5 h-3.5" />
+                              <Clipboard style={{ width: '14px', height: '14px' }} />
                             )}
                           </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+
+                      {/* アクションボタン */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <button
                           onClick={() => setEditingDbConnection(item)}
-                          className={`${btnIconClass} text-gray-400 hover:text-white hover:bg-gray-700`}
+                          style={iconBtnStyle}
                           aria-label="編集"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#ede9f8'
+                            e.currentTarget.style.color = '#7c3aed'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none'
+                            e.currentTarget.style.color = '#7a6a9e'
+                          }}
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil style={{ width: '16px', height: '16px' }} />
                         </button>
                         <button
                           onClick={() => handleDeleteDbConnection(item.id)}
-                          className={`${btnIconClass} text-gray-400 hover:text-red-400 hover:bg-red-900/30`}
+                          style={{ ...iconBtnStyle, color: '#c0392b' }}
                           aria-label="削除"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(192,57,43,0.1)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none'
+                          }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 style={{ width: '16px', height: '16px' }} />
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           )}
